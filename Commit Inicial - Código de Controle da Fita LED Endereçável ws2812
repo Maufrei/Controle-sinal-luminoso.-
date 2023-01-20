@@ -1,0 +1,303 @@
+//Inclusão da biblioteca Json
+#include <ArduinoJson.h>
+//Inclusão da biblioteca ESP8266wifi
+#include <ESP8266WiFi.h>
+//inclusão da biblioteca específica para controle de fitas LED endereçáveis
+#include <FastLED.h>
+
+
+//Definição do pino digital para controle dos LEDs
+#define LedPin 5
+
+//Definição do número de LEDs máximo que se deseja controlar
+#define n 84
+
+const char* ssid = "Automacao";         //Nome da Rede
+const char* password = "127.0.0.1...";  //Password da rede
+
+//Porta HTML 80
+WiFiServer server(80);
+
+//Chamando o objeto do tipo CRGB da biblioteca e definindo o número de LEDs
+CRGB leds[n];
+
+//Inicialização e definição de variáveis de controle do da estrutura "for" e demais
+int x1 = 0, x2 = n;
+int valueColorR1, valueColorG1, valueColorB1, valueColorR2, valueColorG2, valueColorB2, valueColorR3, valueColorG3, valueColorB3, valueColorR4, valueColorG4, valueColorB4, valueColorR5, valueColorG5, valueColorB5, valueColorR6, valueColorG6, valueColorB6, valueColorR7, valueColorG7, valueColorB7;
+//Definição da variável que controla o delay entre um estado e outro, ou seja, define a frequência em que os LEds irão piscar
+int intervalo = 500;
+//Definição de variáveis para controle de cor de cada luminária conforme o indice após as letras
+//Ex: r1: Variável correspondente a cor vermelha (red) da luminária 1
+int r1 = 0, g1 = 0, b1 = 0, r2 = 0, g2 = 0, b2 = 0, r3 = 0, g3 = 0, b3 = 0, r4 = 0, g4 = 0, b4 = 0, r5 = 0, g5 = 0, b5 = 0, r6 = 0, g6 = 0, b6 = 0, r7 = 0, g7 = 0, b7 = 0;
+//Definição do número de LEDs por luminária de acordo o índice
+//Ex: lp1i: Variável correspondente ao número do primeiro LED da Lâmpada 1
+//Ex: lp1f: Variável correspondente ao número do último LED da Lâmpada 1
+int lp1i = 0, lp1f = 12, lp2i = 12, lp2f = 24, lp3i = 24, lp3f = 36, lp4i = 36, lp4f = 48, lp5i = 48, lp5f = 60, lp6i = 60, lp6f = 72, lp7i = 72, lp7f = 84;
+//Variável do tipo string para armazenar os comandos enviados pelo monitor
+String recebido = "";
+String request;
+// Variável chav para identificação do acionamento da cor GREEN uma única vez
+char keyg1 = '0', keyg2 = '0', keyg3 = '0', keyg4 = '0', keyg5 = '0', keyg6 = '0', keyg7 = '0';
+
+
+void setup() {
+  // Inicializa a porta serial 
+  Serial.begin(115200);
+
+  // Parâmetros para inicial a Comunicação com a rede WiFi
+  WiFi.begin(ssid, password);  //Inicia a conexão com a rede
+
+  //Enquanto a ligação não for feita com sucesso é apresentada uma sucessão de “.” no monitor serial
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi conectado");  //Se a conexão for feita com sucesso é apresentada esta mensagem no monitor serial
+
+  // Servidor
+  server.begin();  //Comunicação com o servidor
+
+  //Impressão do endereço IP conectado
+  Serial.print("Use o seguinte URL para a comunicação: ");
+  Serial.print("http://");
+  Serial.print(WiFi.localIP());  //Abrindo este endereço de IP no seu navegador te conduzirá a página HTML para controle do led
+  Serial.println("/");
+
+  //Declaração do tipo de fita led endereçável para a biblioteca
+  FastLED.addLeds<WS2812, LedPin, GRB>(leds, n);
+  //Definição do brilho a ser aplicado em todos os LEDs inicialmente
+  FastLED.setBrightness(255);
+
+  //Estrutura para realizar a inicialização dos LEDs em sequência na cor WHITE (Branca) com brilho em 250 (100%)
+  for (int i = 0; i < n; i++) {
+    leds[i] = CRGB(250, 250, 250);
+    FastLED.show();
+    delay(50);
+  }
+  //Estrutura para Desligar todos os LEDs
+  for (int i = 0; i < n; i++) {
+    leds[i] = CRGB(0, 0, 0);
+    FastLED.show();
+  }
+  delay(500);
+}
+
+void loop() {
+  //Cria um objeto cliente do tipo Wifi
+  WiFiClient client = server.available();
+
+  // Aloca um espaço temporário do tipo JsonDocument
+  // Use https://arduinojson.org/v6/assistant to compute the capacity.
+  StaticJsonDocument<600> doc;
+
+  // Cria alguns arrays para alocar os dados no Json
+  JsonArray LampValues = doc.createNestedArray("Lampada:");
+  JsonArray RValues = doc.createNestedArray("R:");
+  JsonArray GValues = doc.createNestedArray("G:");
+  JsonArray BValues = doc.createNestedArray("B:");
+
+  //Se existir um cliente
+  if (client) {
+    //Se chegou algo do cliente 
+    if (client.available()) {
+      //Salva na variável os dados recebidos
+      request = client.readStringUntil('\r');
+      client.flush();
+    }
+    //Estrutura de decisão para acionamento das Lâmpadas na cor correta conforme dado recebido do cliente
+    if (request.indexOf("/lp1") > 0) {
+      int valueLamp = 1;
+      LampValues.add(valueLamp);
+
+      if (request.indexOf("/r1=255") > 0) {
+        valueColorR1 = 255;
+        r1 = 255;
+        g1 = 0;
+        b1 = 0;
+        keyg1 = '0';
+        RValues.add("Lp1:");
+        RValues.add(valueColorR1);
+      }
+      if (request.indexOf("/g1=255") > 0) {
+        valueColorG1 = 255;
+        r1 = 0;
+        g1 = 255;
+        b1 = 0;
+        keyg1 = '0';
+        GValues.add("Lp1:");
+        GValues.add(valueColorG1);
+      }
+      if (request.indexOf("/b1=255") > 0) {
+        valueColorB1 = 255;
+        r1 = 0;
+        g1 = 0;
+        b1 = 255;
+        BValues.add("Lp1:");
+        BValues.add(valueColorB1);
+      }
+      if (request.indexOf("/r1=255") > 0 && request.indexOf("/g1=255") > 0) {
+        if (valueColorR1 == 255 && valueColorG1 == 255) {
+          r1 = 255;
+          g1 = 255;
+          b1 = 0;
+          keyg1 = '1';
+        } else {
+          valueColorR1 = 255;
+          valueColorG1 = 255;
+          r1 = 255;
+          g1 = 255;
+          b1 = 0;
+          keyg1 = '1';
+          RValues.add("Lp1:");
+          RValues.add(valueColorR1);
+          GValues.add("Lp1:");
+          GValues.add(valueColorG1);
+        }
+      }
+      if (request.indexOf("/r1=0") > 0) {
+        r1 = 0;
+        valueColorR1 = 0;
+        RValues.add("Lp1:");
+        RValues.add(valueColorR1);
+      }
+      if (request.indexOf("/g1=0") > 0) {
+        g1 = 0;
+        valueColorG1 = 0;
+        GValues.add("Lp1:");
+        GValues.add(valueColorG1);
+      }
+      if (request.indexOf("/b1=0") > 0) {
+        b1 = 0;
+        valueColorB1 = 0;
+        BValues.add("Lp1:");
+        BValues.add(valueColorB1);
+      }
+    }
+
+    if (request.indexOf("/lp2") > 0) {
+      int valueLamp = 2;
+      LampValues.add(valueLamp);
+
+      if (request.indexOf("/r2=255") > 0) {
+        valueColorR2 = 255;
+        r2 = 255;
+        g2 = 0;
+        b2 = 0;
+        keyg2 = '0';
+        RValues.add("Lp2:");
+        RValues.add(valueColorR2);
+      }
+      if (request.indexOf("/g2=255") > 0) {
+        valueColorG2 = 255;
+        r2 = 0;
+        g2 = 255;
+        b2 = 0;
+        keyg2 = '0';
+        GValues.add("Lp2:");
+        GValues.add(valueColorG2);
+      }
+      if (request.indexOf("/b2=255") > 0) {
+        valueColorB2 = 255;
+        r2 = 0;
+        g2 = 0;
+        b2 = 255;
+        BValues.add("Lp2:");
+        BValues.add(valueColorB2);
+      }
+      if (request.indexOf("/r2=255") > 0 && request.indexOf("/g2=255") > 0) {
+        if (valueColorR2 == 255 && valueColorG2 == 255) {
+          r2 = 255;
+          g2 = 255;
+          b2 = 0;
+          keyg2 = '1';
+        } else {
+          valueColorR2 = 255;
+          valueColorG2 = 255;
+          r2 = 255;
+          g2 = 255;
+          b2 = 0;
+          keyg2 = '1';
+          RValues.add("Lp2:");
+          RValues.add(valueColorR2);
+          GValues.add("Lp2:");
+          GValues.add(valueColorG2);
+        }
+      }
+      if (request.indexOf("/r2=0") > 0) {
+        r2 = 0;
+        valueColorR2 = 0;
+        RValues.add("Lp2:");
+        RValues.add(valueColorR2);
+      }
+      if (request.indexOf("/g2=0") > 0) {
+        g2 = 0;
+        valueColorG2 = 0;
+        GValues.add("Lp2:");
+        GValues.add(valueColorG2);
+      }
+      if (request.indexOf("/b2=0") > 0) {
+        b2 = 0;
+        valueColorB2 = 0;
+        BValues.add("Lp2:");
+        BValues.add(valueColorB2);
+      }
+    }
+
+    // Escreve o cabeçálho de resposta
+    client.println(F("HTTP/1.0 200 OK"));
+    client.println(F("Content-Type: application/json"));
+    client.println(F("Connection: close"));
+    client.print(F("Content-Length: "));
+    client.println(measureJsonPretty(doc));
+    client.println();
+
+    // Escreve o documento Json
+    serializeJsonPretty(doc, client);
+  }
+
+  //Se recebeu algum comando para acionar uma lâmpada, faz
+  if (r1 != 0 || g1 != 0 || b1 != 0 || r2 != 0 || g2 != 0 || b2 != 0) {
+    //Estrutura de verificação de acionamento do LED na cor verde que só pode ocorrer uma vez por solicitação
+    if (keyg1 == '1') {
+      //Se o LED na cor verde não foi solicitada ainda, atribui 255
+      g1 = 255;
+    }
+    //Aplica o valores atribuídos as variáreis r1, g1 e b1 aos LEDs da Lâmpada 1
+    for (int i = lp1i; i < lp1f; i++) {
+      leds[i] = CRGB(r1, g1, b1);
+      FastLED.show();
+    }
+    // Atribui 0 a variável correspondente a cor verde para que não ligue novamente no decorrer do loop
+    g1 = 0;
+
+    //Estrutura de verificação de acionamento do LED na cor verde que só pode ocorrer uma vez por solicitação
+    if (keyg2 == '1') {
+      //Se o LED na cor verde não foi solicitada ainda, atribui 255
+      g2 = 255;
+    }
+    //Aplica o valores atribuídos as variáreis r2, g2 e b2 aos LEDs da Lâmpada 2
+    for (int j = lp2i; j < lp2f; j++) {
+      leds[j] = CRGB(r2, g2, b2);
+      FastLED.show();
+    }
+    // Atribui 0 a variável correspondente a cor verde para que não ligue novamente no decorrer do loop
+    g2 = 0;
+
+    //Delay para dar a ideia de piscar (Blink)
+    delay(intervalo);
+
+    for (int i = x1; i < x2; i++) {
+      //Apaga todos os Leds de todas as lâmpadas
+      leds[i] = CRGB(0, 0, 0);
+      FastLED.show();
+    }
+
+    //Delay para dar a ideia de piscar (Blink)
+    delay(intervalo);
+  }
+
+  // Disconnect
+  client.stop();
+}
